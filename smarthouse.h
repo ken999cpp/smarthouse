@@ -1,6 +1,10 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <algorithm>
+#include <fstream>
+#include <stdexcept>
+#include <sstream>
 #pragma once
 class Coordinator;
 class Device
@@ -77,5 +81,7 @@ class Coordinator
         void printDevices() const;
         void printSummart() const;
         Device* getDeviceById(int id) const;
+        void writeToFile(const std::string&);
+        void readFromFile(const std::string&);
         ~Coordinator();
 };

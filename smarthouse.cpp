@@ -1,5 +1,4 @@
 #include "smarthouse.h"
-#include <algorithm>
 Device::Device(std::string name): name(std::move(name)) {}
 void Device::setCoordinator(Coordinator* coord)
 {
@@ -127,6 +126,7 @@ void Coordinator::disconnectDevice(int id)
     {
         if ((*it)->getId() == id)
         {
+            delete *it;
             devices.erase(it);
             *it = nullptr;
             break;
@@ -173,6 +173,113 @@ Device* Coordinator::getDeviceById(int id) const
     }
     return nullptr;
 }
+void Coordinator::writeToFile(const std::string& str)
+{
+    std::ofstream fout(str);
+    if (!fout.is_open())
+    {
+        throw std::runtime_error("Can't open the file");
+    }
+    for (auto& dev: devices)
+    {
+        fout << *dev << '\n';
+    }
+    if (fout.fail())
+    {
+        throw std::runtime_error("Error while writing to the file");
+    }
+}
+void Coordinator::readFromFile(const std::string& str)
+{
+    std::ifstream fin(str);
+    if (!fin.is_open())
+    {
+        throw std::runtime_error("Can't open the file");
+    }
+    for (auto& dev: devices)
+    {
+        dev -> setCoordinator(nullptr);
+        delete dev;
+    }
+    devices.clear();
+    nextId = 1;
+    std::string line;
+    while (std::getline(fin, line))
+    {
+        if (line.empty())
+        {
+            continue;
+        }
+        std::istringstream iss(line);
+        std::string idToken, idStr, word1, word2, name, status, type;
+        iss >> idToken >> idStr >> word1;
+        if (word1 == "Security")
+        {
+            iss >> word2;
+            type = word1 + " " + word2;
+        }
+        else
+        {
+            type = word1;
+        }
+        if (idToken != "[ID:" || word1.empty())
+        {
+            continue;
+        }
+        if (!std::isdigit(idStr[0]))
+        {
+            continue;
+        }
+        std::getline(iss, name, '"');
+        std::getline(iss, name, '"');
+        std::string restOfLine;
+        std::getline(iss, restOfLine);
+        if (restOfLine.find("(ON)") != std::string::npos)
+        {
+            status = "ON";
+        }
+        else if (restOfLine.find("(OFF)") != std::string::npos)
+        {
+            status = "OFF";
+        }
+        else
+        {
+            continue;
+        }
+        Device* device = nullptr;
+        if (type == "Light")
+        {
+            device = new Light(name);
+        }
+        else if (type == "Thermostat")
+        {
+                
+            device = new Thermostat(name);
+        }
+        else if (type == "Security Camera")
+        {
+            
+            device = new SecurityCamera(name);
+        }
+        if (!device)
+        {
+            continue;
+        }
+        if (status == "ON")
+        {
+            device -> turnOn();
+        }
+        else
+        {
+            device -> turnOff();
+        }
+        connectDevice(device);
+        if (fin.fail())
+        {
+            throw std::runtime_error("Error while reading from the file");
+        }
+    }
+}
 Coordinator::~Coordinator()
 {
     for (auto& dev: devices)
@@ -182,5 +289,3 @@ Coordinator::~Coordinator()
     }
     devices.clear();
 }
-
-
